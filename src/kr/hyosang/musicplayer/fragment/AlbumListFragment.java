@@ -38,6 +38,9 @@ import android.widget.Spinner;
 public class AlbumListFragment extends FragmentBase {
     private static final int MSG_CATEGORY_DATA_SET = 0x02;
     
+    private static final String KEY_LEVEL1_VALUE = "key_lv1";
+    private static final String KEY_LEVEL2_VALUE = "key_lv2";
+    
     private ListView mAlbumList = null;
     private AlbumListAdapter mAdapter = null;
     private IAlbumListListener mListener = null;
@@ -47,6 +50,8 @@ public class AlbumListFragment extends FragmentBase {
     private CategorySpinnerAdapter mLevel2Adapter = null;
     private boolean bLastReached = false;
     private HashMap<String, List<CategoryData>> mCate2Map = new HashMap<String, List<CategoryData>>();
+    private String mRestoreLevel1 = null;
+    private String mRestoreLevel2 = null;
     
     public static interface IAlbumListListener {
         public void onAlbumSelected(AlbumListItem item);
@@ -151,6 +156,11 @@ public class AlbumListFragment extends FragmentBase {
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         
+        if(savedInstanceState != null) {
+            mRestoreLevel1 = savedInstanceState.getString(KEY_LEVEL1_VALUE);
+            mRestoreLevel2 = savedInstanceState.getString(KEY_LEVEL2_VALUE);
+        }
+        
         //카테고리 목록 로드
         String url = Define.SERVER_URL + Define.URI_ALBUM_CATEGORY;
         
@@ -209,10 +219,16 @@ public class AlbumListFragment extends FragmentBase {
     
     private void setCategoryList(JSONArray json) {
         if(json != null) {
+            int nsel = 0;
             for(int i=0;i<json.length();i++) {
                 JSONObject cate1 = json.optJSONObject(i);
                 
                 mLevel1Adapter.add(new CategoryData(cate1.optString("key"), cate1.optString("name")));
+                
+                if(mRestoreLevel1 != null && mRestoreLevel1.equals(cate1.optString("key"))) {
+                    nsel = mLevel1Adapter.getCount() - 1;
+                    Logger.d("SELECTION = " + nsel);
+                }
                 
                 JSONArray cate2 = cate1.optJSONArray("cate2");
                 
@@ -228,6 +244,8 @@ public class AlbumListFragment extends FragmentBase {
                     mCate2Map.put(cate1.optString("key"), list);
                 }       
             }
+            
+            mLevel1.setSelection(nsel);
         }
     }
     
@@ -245,7 +263,9 @@ public class AlbumListFragment extends FragmentBase {
             for(CategoryData itm : cate2) {
                 mLevel2Adapter.add(itm);
                 
-                if(currYear.equals(itm.value)) {
+                if(mRestoreLevel2 != null && mRestoreLevel2.equals(itm.value)) {
+                    selectedIndex = mLevel2Adapter.getCount() - 1;
+                }else if(selectedIndex == 0 && currYear.equals(itm.value)) {
                     selectedIndex = mLevel2Adapter.getCount() - 1;
                 }
             }
@@ -271,6 +291,22 @@ public class AlbumListFragment extends FragmentBase {
             }
         }
     };
+    
+    public void onSaveInstanceState(Bundle outState) {
+        int idx = mLevel1.getSelectedItemPosition();
+        if(idx != -1) {
+            CategoryData cate = mLevel1Adapter.getItem(idx);
+            outState.putString(KEY_LEVEL1_VALUE, cate.value);
+        }
+        
+        idx = mLevel2.getSelectedItemPosition();
+        if(idx != -1) {
+            CategoryData cate = mLevel2Adapter.getItem(idx);
+            outState.putString(KEY_LEVEL2_VALUE, cate.value);
+        }
+    }
+    
+    
     
     
     private void loadData() {
